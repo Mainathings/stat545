@@ -1,0 +1,237 @@
+---
+title: "Stat545"
+author: "Mark Kinyanjui"
+date: "1/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Learning new techniques Stat 545
+
+https://stat545.com/basic-data-care.html
+
+
+Laoding all the Packages needed
+
+```{r}
+install.packages("gapminder")
+install.packages("tidyverse")
+library(gapminder)
+library(tidyverse)
+
+
+```
+
+
+## Exploring the structures and datasets 
+
+Different ways to explore a data frame, tibble 
+
+```{r}
+str(gapminder)
+
+class(gapminder)
+
+gapminder
+
+head(gapminder)
+
+tail(gapminder)
+
+as_tibble(iris)
+
+names(gapminder)
+
+summary(gapminder)
+
+
+# Simple plot jus to visualize dataset 
+
+plot(lifeExp ~ year, gapminder)
+
+
+plot(lifeExp ~ gdpPercap, gapminder)
+
+plot(lifeExp ~ log(gdpPercap), gapminder)
+
+head(gapminder$lifeExp)
+
+summary(gapminder$lifeExp)
+
+hist(gapminder$lifeExp)
+
+class(gapminder$continent)
+
+summary(gapminder$continent)
+
+levels(gapminder$continent)
+
+
+nlevels(gapminder$continent)
+
+
+```
+
+# Slowly diving deeper into the learning 
+
+```{r}
+table(gapminder$continent)
+
+barplot(table(gapminder$continent))
+
+
+```
+
+# Using Dplyr  
+It is part of the tidyverse package,
+
+Cmd+Shift+M (Mac).- shortcut for %>%
+
+```{r}
+filter(gapminder, lifeExp < 29)
+
+filter(gapminder, country == "Rwanda" , year >1979)
+
+filter(gapminder, country %in% c("Rwanda", "Afghanistan"))
+
+
+gapminder %>% 
+  select(year, lifeExp) %>% 
+  head(4)
+
+gapminder %>% 
+  filter(country == "Cambodia") %>% 
+  select(year, lifeExp)
+
+
+### Creating a copy of gapminder so no changes are made to the original dataset
+
+(my_gap <- gapminder)
+
+my_gap %>% 
+  mutate(gdp = pop * gdpPercap)
+
+```
+
+### Replicating data in a row to fit number of levels 
+Maybe it would be more meaningful to consumers of my tables and figures to stick with GDP per capita. But what if I reported GDP per capita, relative to some benchmark country. Since Canada is my adopted home, I’ll go with that.
+
+I need to create a new variable that is gdpPercap divided by Canadian gdpPercap, taking care that I always divide two numbers that pertain to the same year.
+
+How I achieve this:
+
+1.Filter down to the rows for Canada.
+2.Create a new temporary variable in my_gap:
+3.Extract the gdpPercap variable from the Canadian data.
+4.Replicate it once per country in the dataset, so it has the right length.
+5.Divide raw gdpPercap by this Canadian figure.
+6.Discard the temporary variable of replicated Canadian gdpPercap
+
+
+
+summarize_at() applies the same summary function(s) to multiple variables
+
+```{r}
+my_gap <- gapminder
+ctib <- my_gap %>% 
+  filter(country == "Canada") 
+
+my_gap <- my_gap %>% 
+  mutate (tmp = rep(ctib$gdpPercap, nlevels(country)),
+         gdpPercapRel = gdpPercap / tmp,
+         tmp = NULL)
+head(my_gap)
+
+summary (my_gap$gdpPercapRel)
+
+
+### Select 
+
+my_gap %>% 
+  filter(country == "Burundi", year > 1996) %>% 
+  select( yr = year, lifeExp, gdpPercap) %>% 
+  select(gdpPercap, everything())
+
+
+#How many observations do we have per continent?
+my_gap %>% 
+  group_by(continent) %>% 
+  summarize(n = n())
+
+# The tally() function is a convenience function that knows to count rows. It honors groups
+
+my_gap %>% 
+  group_by(continent) %>% 
+  tally()
+
+# The count() function is an even more convenient function that does both grouping and counting
+
+my_gap %>% 
+  count(continent)
+
+
+#What if we wanted to add the number of unique countries for each continent?
+
+my_gap %>% 
+  group_by(continent) %>% 
+  summarize ( n = n(),
+              n_countries = n_distinct(country)) 
+
+my_gap %>% 
+  group_by(continent) %>% 
+  summarize(avg_lifeExp = mean(lifeExp))
+
+
+# Let’s compute average and median life expectancy and GDP per capita by continent by year…but only for 1952 and 2007.
+my_gap %>% 
+  filter(year %in% c(1952,2007)) %>% 
+  group_by(continent, year) %>% 
+  summarize_at(vars(lifeExp,gdpPercap), list(~mean(.),~median(.)))
+
+
+#Let’s focus just on Asia. What are the minimum and maximum life expectancies seen by year?
+
+my_gap %>% 
+  filter(continent == "Asia") %>% 
+  group_by(year) %>% 
+  summarize ( min_lifeExp = min(lifeExp), max_lifeExp = max(lifeExp))
+
+```
+# Computing with group-wise summaries
+Let’s make a new variable that is the years of life expectancy gained (lost) relative to 1952, for each individual country. We group by country and use mutate() to make a new variable. The first() function extracts the first value from a vector. Notice that first() is operating on the vector of life expectancies within each country group.
+
+```{r}
+my_gap %>% 
+  group_by(country) %>% 
+  select(country, year, lifeExp) %>% 
+  mutate(lifeExp_gain = lifeExp - first(lifeExp)) %>% 
+  filter(year < 1963)
+
+
+my_gap %>%
+  filter(continent == "Asia") %>% 
+  select(year, country, lifeExp) %>% 
+  group_by(year) %>% 
+  filter(min_rank(desc(lifeExp)) < 2 | min_rank(lifeExp) < 2 ) %>% 
+  arrange(year) %>% 
+  print(n = Inf)
+
+
+##  which country experienced the sharpest 5-year drop in life expectancy
+
+my_gap %>% 
+  select(country, year, continent, lifeExp) %>%
+  group_by(continent, country) %>%
+  mutate( le_delta = lifeExp - lag(lifeExp)) %>%
+  summarize( worst_le_delta = min(le_delta, na.rm = TRUE)) %>% 
+  top_n(-1 , wt = worst_le_delta) %>% 
+  arrange(worst_le_delta)
+
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
