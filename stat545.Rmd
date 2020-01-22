@@ -220,7 +220,7 @@ my_gap %>%
   print(n = Inf)
 
 
-##  which country experienced the sharpest 5-year drop in life expectancy
+### which country experienced the sharpest 5-year drop in life expectancy 
 
 my_gap %>% 
   select(country, year, continent, lifeExp) %>%
