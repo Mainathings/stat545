@@ -2,7 +2,7 @@
 title: "Stat545"
 author: "Mark Kinyanjui"
 date: "1/20/2020"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -220,7 +220,7 @@ my_gap %>%
   print(n = Inf)
 
 
-### which country experienced the sharpest 5-year drop in life expectancy 
+##  which country experienced the sharpest 5-year drop in life expectancy
 
 my_gap %>% 
   select(country, year, continent, lifeExp) %>%
@@ -233,5 +233,362 @@ my_gap %>%
 
 
 ```
+### Chapter  8 - TidyR
+```{r}
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```
+
+
+### Chapter 9 - Writing and reading data 
+
+````{r}
+library(tidyverse)
+library(fs)
+(gap_tsv <- path_package("gapminder","extdata","gapminder.tsv"))
+
+
+## Rectangular data 
+
+gapminder <- read_tsv(gap_tsv)
+
+str(gapminder, give.attr = FALSE)
+
+gapminder <- gapminder %>%  
+  mutate(country = factor(country),
+         continent = factor (continent))
+
+str(gapminder)
+
+# Let’s create a country-level summary of maximum life expectancy
+
+gap_life_exp <- gapminder %>% 
+  group_by(country, continent) %>% 
+  summarise(life_exp = max(lifeExp)) %>% 
+  ungroup()
+
+gap_life_exp
+
+
+write_csv(gap_life_exp, "gap_life_exp.csv")
+
+
+head(levels(gap_life_exp$country))
+
+gap_life_exp <- gap_life_exp %>% 
+  mutate(country = fct_reorder(country, life_exp)) 
+
+head(levels(gap_life_exp$country))
+  
+
+gap_life_exp$country
+
+
+
+### Cleaning up the files that we have created 
+file.remove(list.files(pattern = "^gap_life_exp"))
+
+```
+
+### Chapter 10 - Factors & forcasts package 
+
+
+```{r}
+library(tidyverse)
+library(gapminder)
+str(gapminder$continent)
+nlevels(gapminder$continent)
+class(gapminder$continent)
+
+gapminder %>% 
+  count(continent)
+
+fct_count(gapminder$continent)
+
+
+### Make sure to drop the factors
+
+nlevels(gapminder$country)
+
+
+h_countries <- c("Egypt", "Haiti", "Romania", "Thailand", "Venezuela")
+
+h_gap <- gapminder %>% 
+  filter(country %in% h_countries)
+
+nlevels(h_gap$country)
+
+## where we actually drop the levels of the factor 
+
+h_gap_dropped <- h_gap %>% 
+  droplevels()
+
+nlevels(h_gap_dropped$country )
+
+
+### use forcats::fct_drop() on a free- range factor 
+
+h_gap$country %>% 
+  fct_drop() %>% 
+  levels()
+
+### Filter the gapminder data down to rows where population is less than a quarter of a million.Get rid of the unused factor levels for country and continent
+
+
+fct_count(gapminder$country)
+fct_count(gapminder$continent)
+
+names(gapminder)
+
+test_gap <- gapminder %>% 
+  filter( pop < 250000)
+
+fct_count(test_gap$continent)
+## should be 3 continents 
+
+test_gap$country %>% 
+fct_drop() %>% 
+levels()
+
+
+
+test_gap$continent %>% 
+fct_drop() %>% 
+levels()
+
+### now trying to save it after getting it done 
+
+
+test_gap_dropped <- test_gap %>% 
+  droplevels()
+
+nlevels(test_gap_dropped$continent) 
+nlevels(test_gap_dropped$country)
+
+### orderinf factor levels by frequency or by another variable 
+
+#default
+
+gapminder$continent %>% 
+  levels()
+
+## ordering by frequency 
+
+gapminder$continent %>% 
+  fct_infreq()  %>% 
+  levels()
+
+## backwards- least 
+gapminder$continent %>% 
+  fct_infreq() %>% 
+  fct_rev %>% 
+  levels()
+
+## order countries by median life expectancy
+
+fct_reorder(gapminder$country, gapminder$lifeExp) %>%
+  levels() %>% 
+  head()
+
+## order accoring to minimum life exp instead of median
+fct_reorder(gapminder$country, gapminder$lifeExp, min) %>% 
+  levels() %>%
+  head()
+## backwards (highest life exp)
+fct_reorder(gapminder$country, gapminder$lifeExp, .desc = TRUE) %>% 
+  levels() %>%
+  head()
+
+###### Example of why we reorder factor levels: often makes plots much better! When a factor is mapped to x or y, it should almost always be reordered by the quantitative variable you are mapping to the other one
+
+ gap_asia_2007 <- gapminder %>% 
+  filter(year == 2007 , continent == "Asia")
+
+ ggplot(gap_asia_2007,aes(x = lifeExp, y = country)) + geom_point()
+ 
+ggplot(gap_asia_2007, aes(x = lifeExp, y = fct_reorder(country, lifeExp))) + geom_point()
+
+
+
+#Use fct_reorder2() when you have a line chart of a quantitative x against another quantitative y and your factor provides the color. This way the legend appears in some order as the data!
+
+h_countries <- c("Egypt", "Haiti", "Romania", "Thailand", "Venezuela")
+
+h_gap <- gapminder %>% 
+  filter(country %in% h_countries) %>% 
+  droplevels()
+
+ggplot(h_gap, aes(x= year, y = lifeExp, color = country)) + geom_line()
+
+ggplot(h_gap, aes(x= year, y = lifeExp, color = fct_reorder2(country, year, lifeExp))) + geom_line() + labs(color = "country")
+
+
+
+
+
+### Stopped at 10.7 too tired to continue ....hmmm..hmmm
+
+## New day Jan 22-2020 - Growing a factor 
+df1 <- gapminder %>% 
+  filter(country %in% c("United States", "Mexico"), year > 2000) %>% 
+  droplevels()
+
+df2 <- gapminder %>% 
+  filter(country %in% c("France","Germany"), year > 2000) %>% 
+  droplevels()
+
+levels(df1$country)
+
+levels (df2$country)
+## combining using fct_c
+
+fct_c(df1$country, df2$country)
+
+```
+
+ ## Chapter 11 - Character vector 
+ 
+ Stringr package - manipulating character vectors 
+ 
+ Especially useful for functions that split one character vector into many and vice versa: separate(), unite(), extract().
+Base functions: nchar(), strsplit(), substr(), paste(), paste0().
+The glue package is fantastic for string interpolation. If stringr::str_interp() doesn’t get your job done, check out the glue package.
+
+```{r}
+## Detect or filter on a target string - str_
+
+str_detect(fruit, pattern = "fruit")
+fruit
+
+
+## Only keep the actual fruits that match  
+
+my_fruit <- str_subset(fruit, pattern = "fruit")
+my_fruit
+
+## substring extraction (and replacement by position)
+
+length (my_fruit)
+
+str_length(my_fruit)
+## first 3 letters
+head(fruit) %>% 
+  str_sub(1,3) 
+
+### The regex a.b will match all countries that have an a, followed by any single character, followed by b. Yes, regexes are case sensitive, i.e. “Italy” does not match.
+countries <- levels(gapminder$country)
+str_subset(countries, pattern = "i.a")
+
+## Anchors can be included to express where the expression must occur within the string. The ^ indicates the beginning of string and $ indicates the end.
+
+str_subset(countries, pattern = "i.a$")
+
+str_subset(my_fruit, pattern = "d")
+
+str_subset(my_fruit, pattern = "^d")
+
+```
+ 
+ 
+ ## 13 - Dates and Times 
+ 
+```{r}
+library(tidyverse)
+library(lubridate)
+Sys.Date()
+today()
+
+str(Sys.Date())
+class(Sys.Date())
+str(today())
+class(today())
+
+
+Sys.time()
+
+now()
+
+str(Sys.time())
+
+class(Sys.time())
+
+str(now())
+
+class(now())
+
+
+
+
+### Column binding 
+
+library(gapminder)
+
+life_exp <- gapminder %>% 
+  select(country, year,lifeExp)
+
+pop  <- gapminder %>% 
+  arrange(year) %>%
+  select(pop)
+
+gdp_percap <- gapminder %>% 
+  arrange(pop) %>% 
+  select(gdpPercap)
+
+(gapminder_garbage <- bind_cols(life_exp, pop,gdp_percap))
+
+
+summary(gapminder$lifeExp)
+
+summary(gapminder_garbage$lifeExp)
+
+range(gapminder$gdpPercap)
+
+range(gapminder_garbage$gdpPercap)
+```
+ 
+ #### 18 - Writing your own functions, part 1
+ 
+ 
+ Build that skateboard before you build the car or some fancy car part. A limited-but-functioning thing is very useful. It also keeps the spirits high
+ 
+ 
+```{r}
+library(gapminder)
+str(gapminder)
+
+min(gapminder$lifeExp)
+max(gapminder$lifeExp)
+range(gapminder$lifeExp)
+
+
+### first function
+
+
+max_minus_min <- function(x) max(x) - min(x)
+max_minus_min(gapminder$lifeExp)
+max_minus_min(1:10)
+max_minus_min(runif(1000))
+
+### stop if not 
+
+mmm <- function(x) {
+  stopifnot(is.numeric(x))
+  max(x) - min(x)
+} 
+mmm(gapminder)
+
+
+mmm2 <- function(x){
+  if(!is.numeric(x)) {
+    stop('I am so sorry, but this function only works for numeric input!\n',
+         'You have provided an object of class: ', class(x)[1])
+  } 
+  max(x)- min(x)
+}
+mmm2(gapminder)
+```
+
+ 
+ 
+ 
+ 
