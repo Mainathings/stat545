@@ -1,8 +1,8 @@
 ---
-title: "Stat545"
+title: "Untitled"
 author: "Mark Kinyanjui"
-date: "1/20/2020"
-output: github_document
+date: "1/23/2020"
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -17,8 +17,8 @@ https://stat545.com/basic-data-care.html
 Laoding all the Packages needed
 
 ```{r}
-install.packages("gapminder")
-install.packages("tidyverse")
+
+
 library(gapminder)
 library(tidyverse)
 
@@ -454,7 +454,7 @@ fct_c(df1$country, df2$country)
 Base functions: nchar(), strsplit(), substr(), paste(), paste0().
 The glue package is fantastic for string interpolation. If stringr::str_interp() doesn’t get your job done, check out the glue package.
 
-```{r}
+```{r, error = TRUE}
 ## Detect or filter on a target string - str_
 
 str_detect(fruit, pattern = "fruit")
@@ -492,7 +492,7 @@ str_subset(my_fruit, pattern = "^d")
  
  ## 13 - Dates and Times 
  
-```{r}
+```{r , error = TRUE}
 library(tidyverse)
 library(lubridate)
 Sys.Date()
@@ -562,7 +562,7 @@ The testthat package (CRAN; GitHub) provides excellent facilities for this, with
 We will construct a test with test_that()
  
  
-```{r}
+```{r , error =TRUE}
 library(gapminder)
 str(gapminder)
 
@@ -806,6 +806,107 @@ le_lin_fit(gapminder %>% filter(country == "Zimbabwe"))
 le_lin_fit(gapminder %>% filter(country == "Kenya"))
 ```
 
+ ### GGplot tutorial - https://github.com/jennybc/ggplot2-tutorial/blob/master/gapminder-ggplot2-scatterplot.md
  
  
+```{r}
+library(tibble)
+library(ggplot2)
+library(gapminder)
+gapminder
+
+### empty plot - skeletons 
+
+ggplot(gapminder, aes(x = gdpPercap, y = lifeExp))
+p <- ggplot(gapminder, aes(x = gdpPercap, y = lifeExp))
+
+### add points 
+ggplot(gapminder, aes(x = gdpPercap, y = lifeExp)) + geom_point()
+p + geom_point()
+## Log transformation 
+ggplot(gapminder, aes(x = log10(gdpPercap), y = lifeExp)) + geom_point()
+###### but better way to use transformations #####
+p + geom_point() + scale_x_log10()
+p <- p + geom_point() + scale_x_log10()
+
+## Map Continent as a variable to aesthetic 
+
+p+ geom_point(aes(color = continent))
+
+
+
+### Let's add a summary 
+
+plot(gapminder, aes( x = gdpPercap, y = lifeExp , color = continent)) + geom_point() + scale_x_log10()
+
+
+### addressing overplotting: Set Alpha transparancy and size to a particular value 
+
+p+ geom_point()
+p + geom_point(alpha = (1/3), size = 3)
+
+## Add a fitted curve or line 
+
+p + geom_point() + geom_smooth()
+
+p + geom_point()+ geom_smooth( lwd = 3 , se = FALSE)
+
+p + geom_point()+ geom_smooth( lwd = 3 , se = FALSE, method = "lm")
+
+
+### Let's bring back our continents 
+
+p + aes(color = continent) + geom_point() + geom_smooth( lwd = 3 , se = FALSE)
+
+
+
+#### Facetting is just another way to exploit a factor 
+
+
+p + geom_point(alpha = (1/8) , size = 3) + facet_wrap (~ continent)
+
+p + geom_point(alpha = (1/8) , size = 3) + facet_wrap (~ continent) + geom_smooth( lwd = 2, se = FALSE)
+
+
+#### Let's plot lifeExp against Year 
+
+ggplot(gapminder, aes( x= year, y = lifeExp , color = continent)) + geom_jitter( alpha = 1/3 , size = 3)
+
+
+### Making mini plots, split out by continent 
+
+ggplot(gapminder, aes(x = year, y = lifeExp, color = continent)) + facet_wrap(~continent, scales = "free_x") + geom_jitter(alpha = 1/3, size = 3) + scale_color_manual(values = continent_colors)
+
+ggplot(subset(gapminder, continent != "Oceania"), 
+       aes(x = year, y = lifeExp , group = country , color =country)) +
+  geom_line(lwd = 1 , show_guide = FALSE ) + facet_wrap(~continent) +
+  scale_color_manual(values = country_colors) + 
+  theme_bw() + theme(strip.text = element_text (size = rel(1.1)))
+
+### Subsetting data 
+
+ggplot(subset (gapminder, country == "Zimbabwe"), aes(x = year, y = lifeExp)) + geom_line() + geom_point()
+
+##can also get the same result with dplyr::filter
+
+suppressPackageStartupMessages(library(dplyr))
+ggplot(gapminder %>% filter(country == "Zimbabwe"),
+       aes(x = year, y = lifeExp)) + geom_line() + geom_point()
+
+
+
+jCountries <- c("Canada", "Rwanda", "Cambodia", "Mexico")
+ggplot(subset(gapminder, country %in% jCountries),
+       aes(x = year, y = lifeExp, color = country)) + geom_line() + geom_point()
+
+
+ggplot(gapminder, aes(x = gdpPercap, y = lifeExp)) +
+  scale_x_log10() + geom_bin2d()
+
+
+sessionInfo()
+
+```
+
+
  
