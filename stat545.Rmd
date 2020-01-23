@@ -552,6 +552,16 @@ range(gapminder_garbage$gdpPercap)
  Build that skateboard before you build the car or some fancy car part. A limited-but-functioning thing is very useful. It also keeps the spirits high
  
  
+ The special argument ... is very useful when you want the ability to pass arbitrary arguments down to another function, but without constantly expanding the formal arguments to your function. This leaves you with a less cluttered function definition and gives you future flexibility to specify these arguments only when you need to.
+ 
+ 
+ Until now, we’ve relied on informal tests of our evolving function. If you are going to use a function a lot, especially if it is part of a package, it is wise to use formal unit tests.
+
+The testthat package (CRAN; GitHub) provides excellent facilities for this, with a distinct emphasis on automated unit testing of entire packages. However, we can take it out for a test drive even with our one measly function.
+
+We will construct a test with test_that()
+ 
+ 
 ```{r}
 library(gapminder)
 str(gapminder)
@@ -586,9 +596,216 @@ mmm2 <- function(x){
   max(x)- min(x)
 }
 mmm2(gapminder)
-```
+
+
+
+quantile(gapminder$lifeExp)
+
+quantile(gapminder$lifeExp, probs = .50)
+
+median(gapminder$lifeExp)
+
+quantile(gapminder$lifeExp, probs = c(.25,.75))
+
+boxplot(gapminder$lifeExp, plot = FALSE)$stats
+
+### Now write a code snippet that takes the difference between two quantiles.
+
+the_probs <- c(.25,.75)
+the_quantiles <- quantile(gapminder$lifeExp, probs = the_probs )
+max(the_quantiles) - min(the_quantiles)
+
+
+qdiff1 <- function(x,probs) {
+  stopifnot(is.numeric(x))
+  the_quantiles <- quantile( x = x , probs = probs)
+  max(the_quantiles) - min(the_quantiles)
+}
+
+
+qdiff1(gapminder$lifeExp, probs = c(.25,.75))
+
+IQR(gapminder$lifeExp)
+
+
+
+qdiff3 <- function(x, probs = c(0, 1)) {
+  stopifnot(is.numeric(x))
+  the_quantiles <- quantile(x, probs)
+  max(the_quantiles) - min(the_quantiles)
+}
+qdiff3(gapminder$lifeExp)
+
+
+z <- gapminder$lifeExp
+z[3] <- NA
+quantile(gapminder$lifeExp)
+
+quantile(z)
+
+quantile(z, na.rm = TRUE)
+
+### Dealing with NA'S within our quantile function 
+
+qdiff4 <- function(x, probs = c(0, 1)) {
+  stopifnot(is.numeric(x))
+  the_quantiles <- quantile(x, probs, na.rm = TRUE)
+  max(the_quantiles) - min(the_quantiles)
+}
+qdiff4(gapminder$lifeExp)
+
+qdiff4(z)
+
+### Dont give defaults, on this function we set na.rm = na.rm 
+
+qdiff5 <- function( x, probs = c(0,1), na.rm = TRUE) {
+  stopifnot(is.numeric(x))
+  the_quantiles <- quantile(x, probs, na.rm = na.rm)
+  max(the_quantiles) - min(the_quantiles)
+}
+  
+qdiff5(gapminder$lifeExp)
+
+qdiff5(z)
+
+ qdiff5(z, na.rm = FALSE) 
+ 
+ 
+ #### we can use ellipsis in function to give the end user freedom to add to the function
+ 
+ qdiff6 <- function( x, probs = c(0,1), na.rm = TRUE, ...) {
+   stopifnot(is.numeric(x)) 
+   the_quantiles <- quantile(x, probs, na.rm = na.rm )
+   max(the_quantiles) - min(the_quantiles)
+ }
+
 
  
+### showing difference between type 1 and type 2  
+set.seed(1234)
+z <- rnorm(10)
+quantile(z, type = 1)
+quantile(z, type = 3)
+all.equal(quantile(z, type = 1), quantile(z,type = 3))
+
+ qdiff6(z, probs = c(0.25,.075), type = 1)
+ 
+ 
+  qdiff6(z, probs = c(0.25,.075), type = 3)
+  
+  
+  
+#### Let’s revert to a version of our function that does no NA handling, then test for proper NA handling. We can watch it fail.
+  
+library(testthat)
+ 
+qdiff_no_NA_no <- function(x, probs = c(0, 1)) {
+  the_quantiles <- quantile(x = x, probs = probs)
+  max(the_quantiles) - min(the_quantiles)
+}
+
+### doesnt work and test that detects it correctly 
+test_that('Na handling works' , {
+  expect_that(qdiff_no_NA_no(c(1:5,NA)), equals(4))
+})
+##works 
+qdiff_no_NA <- function(x, probs = c(0, 1), na.rm = TRUE) {
+  the_quantiles <- quantile(x = x, probs = probs, na.rm = na.rm)
+  max(the_quantiles) - min(the_quantiles)
+}
+
+
+test_that('Na handling works' , {
+  expect_that(qdiff_no_NA(c(1:5,NA)), equals(4))
+})
+  
+```
+
+## Chapter 21 - Function writing practicum 
+ 
+```{r}
+library(gapminder)
+library(ggplot2)
+library(dplyr)
+
+## getting data to practice 
+j_country <- "France"
+(j_dat <- gapminder %>% 
+  filter(country == j_country))
+
+## Always always always plot the data 
+
+p <- ggplot(j_dat, aes(x = year, y = lifeExp))
+p + geom_point() + geom_smooth(method = "lm", se = FALSE)
+
+
+##Fit the regression  - sanity check - change the intercept 
+
+j_fit <- lm(lifeExp ~ year , j_dat)
+coef(j_fit)
+
+## coef didnt make sense because it says at year 0 life expectancy was at -397.76 so we will move it to start that the beginning of the data 1952....I() function which “inhibits interpretation/conversion of objects”
+
+j_fit <- lm(lifeExp ~ I(year - 1952), j_dat)
+coef(j_fit)
+### Coefficient of 67.79 makes much more sense 
+
+### turn working code into a function 
+
+le_lin_fit <- function ( dat, offset = 1952) {
+  the_fit <- lm(lifeExp ~ I(year - offset), dat)
+  coef(the_fit)
+}
+
+le_lin_fit(j_dat)
+
+
+## its messy and we need to fix the names on it 
+
+le_lin_fit <- function ( dat, offset = 1952) {
+  the_fit <- lm(lifeExp ~ I(year - offset), dat)
+  setNames(coef(the_fit), c("intercept", "slope"))
+}
+le_lin_fit(j_dat)
+
+
+
+### testing the function on another country 
+
+j_country <- "Zimbabwe"
+
+(j_dat <- gapminder %>% 
+  filter( country == j_country))
+
+### visualizing 
+
+p <- ggplot(j_dat, aes(x = year, y = lifeExp)) + geom_point()
+p + geom_smooth(method = "lm", se = FALSE)
+
+## coefficients 
+
+j_fit <- lm(lifeExp ~ year , j_dat)
+coefficients(j_fit)
+
+### create a function 
+
+le_lin_fit(j_dat)
+
+
+
+### It’s also a good idea to clean out the workspace, rerun the minimum amount of code, and retest your function. This will help you catch another common mistake: accidentally relying on objects that were lying around in the workspace during development but that are not actually defined in your function nor passed as formal arguments.
+
+rm(list = ls())
+
+le_lin_fit <- function(dat, offset = 1952) {
+  the_fit <- lm(lifeExp ~ I(year - offset), dat)
+  setNames(coef(the_fit), c("Intercept", "Slope"))
+}
+
+le_lin_fit(gapminder %>% filter(country == "Zimbabwe"))
+le_lin_fit(gapminder %>% filter(country == "Kenya"))
+```
+
  
  
  
